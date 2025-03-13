@@ -18,3 +18,8 @@ Langage : C
 Structures de données : Listes doublement chaînées
 Objectif du projet
 Ce projet vise à fournir une base de gestion simplifiée pour un restaurant, idéale pour s'entraîner à la manipulation des structures et des listes chaînées en C.
+
+**Réalisé par:**
+https://github.com/houdachiker
+https://github.com/YellowPhantom1
+https://github.com/koalalaland
