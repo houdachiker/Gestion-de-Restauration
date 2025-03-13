@@ -1,0 +1,990 @@
+
+ #include <stdio.h>
+#include <stdlib.h>
+#include<string.h>
+// Définition de la structure d'une table
+typedef struct
+{
+    int tableID;
+    int capacite;
+    char etat[10];
+    int numero;
+} Table;
+typedef struct
+{
+    int numeroTable;
+    char nomClient[50];
+    char date[20];
+    char heure[10];
+} Reservation;
+typedef struct ListeReservation
+{
+    Reservation data;
+    struct ListeReservation *prev;
+    struct ListeReservation *next;
+} ListeReservation;
+typedef struct
+{
+    int id;
+    char nom[50];
+    char prenom[50];
+    char adresse[100];
+} Client;
+// Définition de la structure d'un plat
+typedef struct
+{
+    char nomPlat[50];
+    char type[100];
+    char dispo[100];
+    float prix;
+} Plat;
+// Définition de la structure d'une commande
+typedef struct
+{
+    int commandeID;
+    Table T_id;
+    Plat *ListePlat;  // Liste des plats de la commande
+    int nombrePlat;
+    char etatCommande[20];
+} Commande;
+// Définition de la structure d'une liste de tables
+typedef struct listeTable
+{
+    Table data;
+    struct listeTable *prec;
+    struct listeTable *suiv;
+} ListeTable;
+// Définition de la structure d'une liste de plats
+typedef struct listePlat
+{
+    Plat data;
+    struct listePlat *prec;
+    struct listePlat *suiv;
+} ListePlat;
+// Définition de la structure d'une liste de commandes
+typedef struct ListeCommande
+{
+    Commande data;
+    struct ListeCommande *prec;
+    struct ListeCommande *suiv;
+} ListeCommande;
+typedef struct
+{
+    int numero_facture;
+    float montant_total;
+    int est_payee; // 0 si non payée, 1 si payée
+} Facture;
+
+// Structure représentant un mode de paiement
+typedef enum
+{
+    CARTE_CREDIT,
+    CARTE_DEBIT,
+    ESPECES,
+    CHEQUE,
+} ModePaiement;
+
+// Fonction pour créer un élément de liste de tables
+ListeTable* creertable(Table T)
+{
+    ListeTable* NE = (ListeTable*)malloc(sizeof(ListeTable));
+    NE->data = T;
+    NE->prec = NULL;
+    NE->suiv = NULL;
+    return NE;
+}
+
+// Fonction pour ajouter une table au début de la liste
+ListeTable* ajouterD(ListeTable* L, Table T)
+{
+    ListeTable* NE = creertable(T);
+    if (L != NULL)
+    {
+        NE->suiv = L;
+        L->prec = NE;
+    }
+    return NE;
+}
+
+// Fonction pour ajouter une table à la fin de la liste
+ListeTable* ajouterFin(ListeTable* L, Table T)
+{
+    ListeTable* NE = creertable(T);
+    if (L == NULL)
+        return NE;
+    else
+    {
+        ListeTable* tmp = L;
+        while (tmp->suiv != NULL)
+        {
+            tmp = tmp->suiv;
+        }
+        tmp->suiv = NE;
+        NE->prec = tmp;
+    }
+    return L;
+}
+
+// Fonction pour ajouter une table dans la liste en fonction de son numéro
+ListeTable* ajouterTable(ListeTable* L, Table T)
+{
+    ListeTable* NE = creertable(T);
+    if (L == NULL || NE->data.numero < L->data.numero)
+    {
+        L=ajouterD(L, T);
+    }
+    else
+    {
+        ListeTable* tmp = L->suiv;
+        while (tmp != NULL && NE->data.numero > tmp->data.numero)
+        {
+            tmp = tmp->suiv;
+        }
+        if (tmp != NULL)
+        {
+            NE->suiv = tmp;
+            NE->prec = tmp->prec;
+            tmp->prec = NE;
+            NE->prec->suiv = NE;
+        }
+        else
+        {
+            ajouterFin(L, T);
+        }
+    }
+    return L;
+}
+
+// Fonction pour supprimer une table en début de liste
+ListeTable* supprimerD(ListeTable* L)
+{
+    if (L == NULL)
+        return NULL;
+    else
+    {
+        ListeTable* tmp = L;
+        L = L->suiv;
+        if (L != NULL)
+        {
+            L->prec = NULL;
+        }
+        free(tmp);
+    }
+    return L;
+}
+
+// Fonction pour supprimer une table de la liste par son numéro
+ListeTable* supprimerNum(ListeTable* L, int numero)
+{
+    if (L != NULL)
+    {
+        if (L->data.numero == numero)
+        {
+            L = supprimerD(L);
+        }
+        else
+        {
+            ListeTable* tmp = L;
+            while (tmp != NULL && tmp->data.numero != numero)
+            {
+                tmp = tmp->suiv;
+            }
+            if (tmp != NULL)
+            {
+                tmp->prec->suiv = tmp->suiv;
+                if (tmp->suiv != NULL)
+                {
+                    tmp->suiv->prec = tmp->prec;
+                }
+                free(tmp);
+            }
+            else
+            {
+                printf("La table avec ce numéro n'existe pas.\n");
+            }
+        }
+    }
+    return L;
+}
+ListeReservation*creernoeud(Reservation R)
+{
+    ListeReservation* NR = (ListeReservation*)malloc(sizeof(ListeReservation));
+    NR->data = R;
+    NR->prev= NULL;
+    NR->next = NULL;
+    return NR;
+}
+
+ListeReservation* passerReservation(ListeReservation* L, Reservation R)
+{
+    ListeReservation*NR=creernoeud(R);
+    if (L == NULL)
+    {
+        return NR;
+    }
+    else
+    {
+        ListeReservation* tmp = L;
+        while (tmp->next!= NULL)
+        {
+            tmp = tmp->next;
+        }
+        tmp->next = NR;
+        NR->prev = tmp;
+    }
+    return L;
+}
+
+ListeReservation* supprimerReservation(ListeReservation* L, char *nomClient)
+{
+    if (L==NULL)
+        return NULL;
+    else
+    {
+        ListeReservation* courant= L;
+
+        while (courant!= NULL && strcmp(courant->data.nomClient, nomClient) != 0)
+        {
+            courant= courant->next;
+        }
+        if (courant != NULL)
+        {
+            courant->prev->next=courant->next;
+            if (courant->next != NULL)
+            {
+                courant->next->prev=courant->prev;
+            }
+            free(courant);
+        }
+    }
+    return L;
+}
+void modifierEtatTable(ListeTable* L, int numero, char* nouvelEtat)
+{
+    // Vérifier si la liste est vide
+    if (L == NULL)
+    {
+        printf("La liste est vide.\n");
+        return;
+    }
+
+    // Rechercher la table avec le numéro donné
+    else
+    {
+        ListeTable* courant = L;
+        while (courant != NULL && courant->data.numero != numero)
+        {
+            courant = courant->suiv;
+        }
+
+        // Si la table avec le numéro est trouvée
+        if (courant != NULL)
+        {
+            strcpy(courant->data.etat, nouvelEtat);
+            printf("L'état de la table avec le numéro %d a été modifié.\n", numero);
+        }
+        else
+        {
+            // Si la table n'est pas trouvée
+            printf("La table avec le numéro %d n'a pas été trouvée.\n", numero);
+        }
+    }
+}
+//chercher la table avec son état si il existe cette état on retoune 1 sinon 0
+int RechercherEtat(ListeTable* L, char* etat)
+{
+
+    ListeTable *courant = L;
+    while (courant != NULL && strcmp(courant->data.etat, etat) != 0)
+    {
+        courant = courant->suiv;
+    }
+    if (courant != NULL)
+    {
+        return 1;
+    }
+    else
+    {
+        return 0;
+    }
+}
+int RechercherEtatparprix(ListePlat*L,float prix)
+{
+
+    ListePlat*courant=L;
+    while (courant != NULL && courant->data.prix!=prix)
+    {
+        courant = courant->suiv;
+    }
+    if (courant != NULL)
+    {
+        return 1;
+    }
+    else
+    {
+        return 0;
+    }
+}
+//les fcts associés a la gestion des plats
+//ajouter un plat au menu
+//création de l'élement
+ListePlat * creerplat(Plat P)
+{
+    ListePlat*nouveau = (ListePlat*)malloc(sizeof(ListePlat));
+
+    nouveau->data = P;
+    nouveau->suiv = NULL;
+    nouveau->prec = NULL;
+
+    return nouveau;
+}
+
+// Fonction pour ajouter un plat au début d'une liste de plats
+ListePlat* ajouterplatD(ListePlat *L, Plat P)
+{
+    ListePlat *nouveau = creerplat(P);
+    if (L != NULL)
+    {
+        nouveau->suiv = L;
+        L->prec = nouveau;
+    }
+
+    return nouveau;
+}
+
+// Fonction pour ajouter un plat à la fin d'une liste de plats
+ListePlat* ajouterplatF(ListePlat *L, Plat P)
+{
+    ListePlat *nouveau = creerplat(P);
+    if (L == NULL)
+    {
+        return nouveau;
+    }
+    else
+    {
+        ListePlat *tmp = L;
+        while (tmp->suiv != NULL)
+        {
+            tmp = tmp->suiv;
+        }
+        tmp->suiv = nouveau;
+        nouveau->prec = tmp;
+    }
+    return L;
+}
+
+// Fonction pour ajouter un plat à une liste de plats par type
+ListePlat* ajouterplatpartype(ListePlat *L, Plat P)
+{
+    ListePlat *nouveau = creerplat(P);
+    if (L == NULL || strcmp(L->data.type, nouveau->data.type) == 0)
+    {
+        L = ajouterplatD(L, P);
+    }
+    else
+    {
+        ListePlat *courant = L;
+        while (courant != NULL && strcmp(courant->data.type, nouveau->data.type) != 0)
+        {
+            courant = courant->suiv;
+        }
+
+        if (courant != NULL)
+        {
+            nouveau->suiv = courant->suiv;
+            nouveau->prec = courant;
+            courant->suiv = nouveau;
+            if (courant->suiv!= NULL)
+            {
+                courant->suiv->prec = nouveau;
+            }
+        }
+        else
+        {
+            L = ajouterplatF(L, P);
+        }
+    }
+
+    return L;
+}
+
+void modifierplatPrix(ListePlat*L,float prix,float nouveauprix)
+{
+    if(L==NULL)
+        printf("la liste est vide");
+    else
+    {
+        ListePlat*courant=L;
+        while(courant!=NULL && courant->data.prix!=prix)
+        {
+            courant=courant->suiv;
+        }
+        if(courant!=NULL)
+        {
+            courant->data.prix=nouveauprix;
+            printf("le prix de ce plat est modifié %f",nouveauprix);
+        }
+        else
+        {
+            printf("le plat avec ce prix n'a pas été trouvé %f",nouveauprix);
+        }
+    }
+}
+void afficherListePlat(ListePlat*L)
+{
+    if(L==NULL)
+    {
+        printf("la liste est vide");
+    }
+    else
+    {
+        ListePlat*tmp=L;
+        while(tmp!=NULL)
+        {
+            puts(tmp->data.nomPlat);
+            puts(tmp->data.type);
+            puts(tmp->data.dispo);
+            printf("%f",tmp->data.prix);
+            tmp=tmp->suiv;
+        }
+    }
+
+}
+void afficherListeReservation(ListeReservation*L)
+{
+    if(L==NULL)
+    {
+        printf("la liste est vide");
+    }
+    else
+    {
+        ListeReservation*tmp=L;
+        while(tmp!=NULL)
+        {
+            printf("%d",tmp->data.numeroTable);
+            puts(tmp->data.nomClient);
+            puts(tmp->data.date);
+            puts(tmp->data.heure);
+            tmp=tmp->next;
+        }
+    }
+
+}
+void afficherListeTABLE(ListeTable*L)
+{
+    if(L==NULL)
+    {
+        printf("la liste est vide");
+    }
+    else
+    {
+        ListeTable*tmp=L;
+        while(tmp!=NULL)
+        {
+
+            printf("\n%d ",tmp->data.tableID);
+            printf("%d ",tmp->data.capacite);
+            printf("%d ",tmp->data.numero);
+            printf("%s \n",tmp->data.etat);
+            tmp=tmp->suiv;
+        }
+        printf("\n*\n");
+    }
+
+}
+
+//les fcts associés a la commande
+ListeCommande*creerCommande(Commande C)
+{
+    ListeCommande*NC=(ListeCommande*)malloc(sizeof(ListeCommande));
+    NC->data=C;
+    NC->prec=NULL;
+    NC->suiv=NULL;
+    return NC;
+}
+//fct ajoutercommandefin
+ListeCommande*ajoutercommandeFin(ListeCommande*L,Commande C)
+{
+    ListeCommande*NC=creerCommande(C);
+    if(L==NULL)
+        return NC;
+    else
+    {
+        ListeCommande*tmp=L;
+        while(tmp->suiv!=NULL)
+        {
+            tmp=tmp->suiv;
+        }
+        tmp->suiv=NC;
+        NC->prec=tmp;
+    }
+    return L;
+}
+//supprimer fct commande
+ListeCommande*supprimerCommande(ListeCommande*L,int commandeID)
+{
+    if(L==NULL)
+        return NULL;
+    else
+    {
+        ListeCommande*tmp=L;
+        while(tmp!=NULL && tmp->data.commandeID!=commandeID)
+        {
+            tmp=tmp->suiv;
+        }
+        if(tmp!=NULL)
+        {
+            tmp->prec->suiv=tmp->suiv;
+            if(tmp->suiv!=NULL)
+            {
+                tmp->suiv->prec=tmp->prec;
+            }
+            free(tmp);
+        }
+    }
+    return L;
+}
+//modifier l'état de la commande
+void modifierEtatCommande(ListeCommande* L, int commandeid, char* nouveauEtat) {
+    if (L == NULL) {
+        printf("La liste est vide.\n");
+        return;
+    }
+
+    ListeCommande* actuel = L;
+    while (actuel != NULL && actuel->data.commandeID != commandeid) {
+        actuel = actuel->suiv;
+    }
+
+    if (actuel != NULL) {
+        strcpy(actuel->data.etatCommande, nouveauEtat);
+        printf("La commande avec l'ID %d a été modifiée avec succès.\n", commandeid);
+    } else {
+        printf("La commande avec l'ID %d n'a pas été trouvée.\n", commandeid);
+    }
+}
+//affichage des commandes
+
+void afficherListeCommande(ListeCommande* L)
+{
+    if (L == NULL)
+    {
+        printf("La liste des commandes est vide.\n");
+    }
+    else
+    {
+        ListeCommande* courant = L;
+
+        while (courant != NULL)
+        {
+            printf("Commande ID: %d\n", courant->data.commandeID);
+            printf("Table ID: %d\n", courant->data.T_id.tableID);
+            printf("État de la commande: %s\n", courant->data.etatCommande);
+
+            // Afficher la liste des plats de la commande
+            for(int i=0;i<courant->data.nombrePlat;i++)
+            {
+                Plat*platCourant=&courant->data.ListePlat[i];
+                printf("  Nom du plat: %s\n", platCourant->nomPlat);
+                printf("  Type: %s\n", platCourant->type);
+                printf("  Disponibilité: %s\n", platCourant->dispo);
+                printf("  Prix: %.2f\n", platCourant->prix);
+
+            }
+            courant = courant->suiv;
+        }
+    }
+}
+
+// Structure représentant une facture
+
+// Structure représentant un mode de paiement
+
+
+// Fonction pour créer une nouvelle facture
+Facture* creerFacture(int numero, float montant)
+{
+    Facture* NF = (Facture*)malloc(sizeof(Facture));
+    if (NF != NULL)
+    {
+        NF->numero_facture = numero;
+        NF->montant_total = montant;
+        NF->est_payee = 0; // La facture est initialisée comme non payée
+    }
+    return NF;
+}
+
+// Fonction pour traiter un paiement
+void effectuerPaiement(Facture* facture, ModePaiement mode)
+{
+    // Vérifier si la facture existe et n'a pas déjà été payée
+    if (facture != NULL && facture->est_payee == 0)
+    {
+        // Mettre à jour le statut de la facture après le paiement
+        facture->est_payee = 1;
+        printf("Paiement de %.2f $ effectué pour la facture numéro %d via ", facture->montant_total, facture->numero_facture);
+
+        // Afficher le mode de paiement
+        switch (mode)
+        {
+        case CARTE_CREDIT:
+            printf("carte de crédit.\n");
+            break;
+        case CARTE_DEBIT:
+            printf("carte de débit.\n");
+            break;
+        case ESPECES:
+            printf("espèces.\n");
+            break;
+        case CHEQUE:
+            printf("chèque.\n");
+            break;
+        default:
+            printf("mode de paiement inconnu.\n");
+            break;
+        }
+    }
+    else
+    {
+        printf("La facture est déjà payée ou n'existe pas.\n");
+    }
+}
+
+
+// Insertion des définitions de structures et des fonctions ici...
+
+
+
+int main()
+{
+    ListeTable *listeTables = NULL;
+    ListeReservation *listeReservations = NULL;
+    ListePlat *listePlats = NULL;
+    ListeCommande *listeCommandes = NULL;
+    Table tableAssociee;
+    Commande nouvelleCommande;
+    int choix, subChoix;
+
+    // Création d'une nouvelle facture
+    Facture* maFacture = creerFacture(1, 100.0);
+
+    // Traitement du paiement
+    effectuerPaiement(maFacture, CARTE_CREDIT);
+
+    // Libération de la mémoire allouée pour la facture
+    free(maFacture);
+
+    do
+    {
+        printf("\nMenu Principal:\n");
+        printf("1. Gestion des tables\n");
+        printf("2. Gestion des réservations\n");
+        printf("3. Gestion des plats\n");
+        printf("4. Gestion des commandes\n");
+        printf("5. Gestion des factures\n");
+        printf("6. Quitter\n");
+        printf("Choisissez une option: ");
+        scanf("%d", &choix);
+
+        switch (choix)
+        {
+        case 1:
+            do
+            {
+                printf("\nGestion des Tables:\n");
+                printf("1. Ajouter une table\n");
+                printf("2. Supprimer une table\n");
+                printf("3. Modifier l'état d'une table\n");
+                printf("4. Afficher la liste des tables\n");
+                printf("5. Retour au menu principal\n");
+                printf("Choisissez une option: ");
+                scanf("%d", &subChoix);
+
+                switch (subChoix)
+                {
+                case 1:
+                {
+                    Table nouvelleTable;
+                    printf("Entrer l'ID de la table: ");
+                    scanf("%d", &nouvelleTable.tableID);
+                    printf("Entrer la capacite de la table: ");
+                    scanf("%d", &nouvelleTable.capacite);
+                    printf("Entrer l'etat de la table: ");
+                    scanf("%s", nouvelleTable.etat);
+                    printf("Entrer le numero de la table: ");
+                    scanf("%d", &nouvelleTable.numero);
+                    listeTables = ajouterTable(listeTables, nouvelleTable);
+                    afficherListeTABLE(listeTables);
+                    break;
+                }
+                case 2:
+                {
+                    int numero;
+                    printf("Entrer le numero de la table a supprimer: ");
+                    scanf("%d", &numero);
+                    listeTables = supprimerNum(listeTables, numero);
+                    afficherListeTABLE(listeTables);
+                    break;
+                }
+                case 3:
+                {
+                    int numero;
+                    char Etat[10];
+                    char nouvelEtat[10];
+
+                     printf("Entrer etat de la table a modifier: \n");
+                    scanf("%s", Etat);
+
+                    if(RechercherEtat(listeTables, Etat)==1){
+
+                    printf("Entrer le numero de la table a modifier: ");
+                    scanf("%d", &numero);
+                    printf("Entrer le nouvel etat de la table: ");
+                    scanf("%s", nouvelEtat);
+                    modifierEtatTable(listeTables, numero, nouvelEtat);
+                    afficherListeTABLE(listeTables);
+
+                    }
+                    else if(RechercherEtat(listeTables, Etat)==0){
+
+                        printf("N'existe pas\n");
+
+                    }
+
+
+                    break;
+                }
+                case 4:
+                    afficherListeTABLE(listeTables);
+                    break;
+                default:
+                    printf("Option invalide, veuillez reessayer.\n");
+                }
+            } while (subChoix != 5);
+            break;
+
+        case 2:
+            do
+            {
+                printf("\nGestion des Réservations:\n");
+                printf("1. passer une reservation\n");
+                printf("2. Supprimer une réservation\n");
+                printf("3. Retour au menu principal\n");
+                printf("Choisissez une option: ");
+                scanf("%d", &subChoix);
+
+                switch (subChoix)
+                {
+                case 1:
+                {
+                    Reservation nouvelleReservation;
+                    printf("Entrer le numero de la table: ");
+                    scanf("%d", &nouvelleReservation.numeroTable);
+                    printf("Entrer le nom du client: ");
+                    scanf("%s", nouvelleReservation.nomClient);
+                    printf("Entrer la date de reservation (YYYY-MM-DD): ");
+                    scanf("%s", nouvelleReservation.date);
+                    printf("Entrer l'heure de reservation (HH:MM): ");
+                    scanf("%s", nouvelleReservation.heure);
+                    listeReservations = passerReservation(listeReservations, nouvelleReservation);
+                    afficherListeReservation(listeReservations);
+                    break;
+                }
+                case 2:
+                {
+                    char nomClient[50];
+                    printf("Entrer le nom du client de la reservation a supprimer: ");
+                    scanf("%s", nomClient);
+                    listeReservations = supprimerReservation(listeReservations, nomClient);
+                    afficherListeReservation(listeReservations);
+                    break;
+                }
+                
+                default:
+                    printf("Option invalide, veuillez reessayer.\n");
+                }
+            } while (subChoix != 3);
+            break;
+
+        case 3:
+            do
+            {
+                printf("\nGestion des Plats:\n");
+                printf("1. Ajouter un plat\n");
+                printf("2. Modifier le prix d'un plat\n");
+                printf("3. Afficher la liste des plats\n");
+                printf("4. Retour au menu principal\n");
+                printf("Choisissez une option: ");
+                scanf("%d", &subChoix);
+
+                switch (subChoix)
+                {
+                case 1:
+                {
+                    Plat nouveauPlat;
+                    printf("Entrer le nom du plat: ");
+                    scanf("%s", nouveauPlat.nomPlat);
+                    printf("Entrer le type du plat: ");
+                    scanf("%s", nouveauPlat.type);
+                    printf("Entrer la disponibilite du plat: ");
+                    scanf("%s", nouveauPlat.dispo);
+                    printf("Entrer le prix du plat: ");
+                    scanf("%f", &nouveauPlat.prix);
+                    listePlats = ajouterplatpartype(listePlats, nouveauPlat);
+                    afficherListePlat(listePlats);
+                    break;
+                }
+                case 2:
+                {
+                    float prix, nouveauPrix;
+                    printf("Entrer le prix du plat a modifier: ");
+                    scanf("%f", &prix);
+                    if(RechercherEtatparprix(listePlats,prix)==1){
+                    printf("Entrer le nouveau prix du plat: ");
+                    scanf("%f", &nouveauPrix);
+                    modifierplatPrix(listePlats, prix, nouveauPrix);
+                    afficherListePlat(listePlats);
+                    }
+                    else if(RechercherEtatparprix(listePlats,prix)==0){
+                        printf("n'existe pas");
+                    }
+                    break;
+                }
+                case 3:
+                    afficherListePlat(listePlats);
+                    break;
+                default:
+                    printf("Option invalide, veuillez reessayer.\n");
+                }
+            } while (subChoix != 4);
+            break;
+
+        case 4:
+            do
+            {
+                printf("\nGestion des Commandes:\n");
+                printf("1. Ajouter une commande\n");
+                printf("2. Supprimer une commande\n");
+                printf("3. Modifier l'état d'une commande\n");
+                printf("4. Afficher la liste des commandes\n");
+                printf("5. Retour au menu principal\n");
+                printf("Choisissez une option: ");
+                scanf("%d", &subChoix);
+
+                switch (subChoix)
+                {
+                case 1:
+                {
+                    printf("Entrer l'ID de la commande: ");
+                    scanf("%d", &nouvelleCommande.commandeID);
+                    printf("Entrer l'ID de la table associee: ");
+                    scanf("%d", &tableAssociee.tableID);
+                    nouvelleCommande.T_id = tableAssociee;
+                    // Assume ListePlat is handled elsewhere
+                 //nouvelleCommandecommandes->data.ListePlat;//
+                    printf("Entrer l'etat de la commande: ");
+                    scanf("%s", nouvelleCommande.etatCommande);
+                    printf("combien de plats dans la commande?");
+                    scanf("%d",&nouvelleCommande.nombrePlat);
+                    nouvelleCommande.ListePlat=(Plat*)malloc(nouvelleCommande.nombrePlat*sizeof(Plat));
+                     for (int i = 0; i < nouvelleCommande.nombrePlat; ++i)
+                    {
+                        printf("Entrer le nom du plat %d: ", i + 1);
+                        scanf("%s", nouvelleCommande.ListePlat[i].nomPlat);
+                        printf("Entrer le type du plat %d: ", i + 1);
+                        scanf("%s", nouvelleCommande.ListePlat[i].type);
+                        printf("Entrer la disponibilité du plat %d: ", i + 1);
+                        scanf("%s", nouvelleCommande.ListePlat[i].dispo);
+                        printf("Entrer le prix du plat %d: ", i + 1);
+                        scanf("%f", &nouvelleCommande.ListePlat[i].prix);
+                    }
+                    listeCommandes = ajoutercommandeFin(listeCommandes, nouvelleCommande);
+                    afficherListeCommande(listeCommandes);
+                    break;
+                }
+                case 2:
+                {
+                    int commandeID;
+                    printf("Entrer l'ID de la commande a supprimer: ");
+                    scanf("%d", &commandeID);
+                    listeCommandes = supprimerCommande(listeCommandes, commandeID);
+                    break;
+                }
+                case 3:
+                {
+                    int commandeID;
+                    char nouveauEtat[50];
+                    printf("Entrer l'ID de la commande a modifier: ");
+                    scanf("%d", &commandeID);
+                    printf("Entrer le nouvel ID de la commande: ");
+                    scanf("%s",nouveauEtat);
+                    modifierEtatCommande(listeCommandes, commandeID, nouveauEtat);
+                    afficherListeCommande(listeCommandes);
+                    break;
+                }
+                case 4:
+                    afficherListeCommande(listeCommandes);
+                    break;
+                default:
+                    printf("Option invalide, veuillez reessayer.\n");
+                }
+            } while (subChoix != 5);
+            break;
+
+        case 5:
+            do
+            {
+                printf("\nGestion des Factures:\n");
+                printf("1. Créer une nouvelle facture\n");
+                printf("2. Effectuer un paiement\n");
+                printf("3. Retour au menu principal\n");
+                printf("Choisissez une option: ");
+                scanf("%d", &subChoix);
+
+                switch (subChoix)
+                {
+                case 1:
+                {
+                    int numero;
+                    float montant;
+                    printf("Entrer le numero de la facture: ");
+                    scanf("%d", &numero);
+                    printf("Entrer le montant de la facture: ");
+                    scanf("%f", &montant);
+                    Facture* nouvelleFacture = creerFacture(numero, montant);
+                    printf("Facture créée avec succès.\n");
+                    free(nouvelleFacture);
+                    break;
+                }
+                case 2:
+                {
+                    int numero;
+                    float montant;
+                    int mode;
+                    printf("Entrer le numero de la facture: ");
+                    scanf("%d", &numero);
+                    printf("Entrer le montant de la facture: ");
+                    scanf("%f", &montant);
+                    printf("Choisir le mode de paiement (0: Especes, 1: Carte, 2: Mobile): ");
+                    scanf("%d", &mode);
+                    Facture* facture = creerFacture(numero, montant);
+                    effectuerPaiement(facture, mode);
+                    printf("Paiement effectué avec succès.\n");
+                    free(facture);
+                    break;
+                }
+                default:
+                    printf("Option invalide, veuillez reessayer.\n");
+                }
+            } while (subChoix != 3);
+            break;
+
+        case 6:
+            printf("Au revoir!\n");
+           break;
+        }
+
+    } while (choix != 6);
+
+    return 0;
+}
